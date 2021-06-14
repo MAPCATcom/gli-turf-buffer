@@ -1,14 +1,14 @@
-import center from "@turf/center";
-import { BufferOp, GeoJSONReader, GeoJSONWriter } from "turf-jsts";
-import { geomEach, featureEach } from "@turf/meta";
-import { geoAzimuthalEquidistant } from "d3-geo";
-import {
-  feature,
-  featureCollection,
-  radiansToLength,
-  lengthToRadians,
-  earthRadius,
-} from "@turf/helpers";
+'use strict';
+
+var center = require('@turf/center');
+var turfJsts = require('turf-jsts');
+var meta = require('@turf/meta');
+var d3Geo = require('d3-geo');
+var helpers = require('@turf/helpers');
+
+function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
+
+var center__default = /*#__PURE__*/_interopDefaultLegacy(center);
 
 /**
  * Calculates a buffer for input features for a given radius. Units supported are miles, kilometers, and degrees.
@@ -68,9 +68,9 @@ function buffer(geojson, radius, options) {
   var results = [];
   switch (geojson.type) {
     case "GeometryCollection":
-      geomEach(geojson, function (geometry) {
+      meta.geomEach(geojson, function (geometry) {
         var buffered = bufferFeature(
-          feature,
+          helpers.feature,
           radius,
           units,
           steps,
@@ -78,9 +78,9 @@ function buffer(geojson, radius, options) {
         );
         if (buffered) results.push(buffered);
       });
-      return featureCollection(results);
+      return helpers.featureCollection(results);
     case "FeatureCollection":
-      featureEach(geojson, function (feature) {
+      meta.featureEach(geojson, function (feature) {
         var multiBuffered = bufferFeature(
           feature,
           radius,
@@ -89,12 +89,12 @@ function buffer(geojson, radius, options) {
           endCapStyle
         );
         if (multiBuffered) {
-          featureEach(multiBuffered, function (buffered) {
+          meta.featureEach(multiBuffered, function (buffered) {
             if (buffered) results.push(buffered);
           });
         }
       });
-      return featureCollection(results);
+      return helpers.featureCollection(results);
   }
   return bufferFeature(geojson, radius, units, steps, endCapStyle);
 }
@@ -117,11 +117,11 @@ function bufferFeature(geojson, radius, units, steps, endCapStyle) {
   // Geometry Types faster than jsts
   if (geometry.type === "GeometryCollection") {
     var results = [];
-    geomEach(geojson, function (geometry) {
+    meta.geomEach(geojson, function (geometry) {
       var buffered = bufferFeature(geometry, radius, units, steps, endCapStyle);
       if (buffered) results.push(buffered);
     });
-    return featureCollection(results);
+    return helpers.featureCollection(results);
   }
 
   // Project GeoJSON to Azimuthal Equidistant projection (convert to Meters)
@@ -132,11 +132,11 @@ function bufferFeature(geojson, radius, units, steps, endCapStyle) {
   };
 
   // JSTS buffer operation
-  var reader = new GeoJSONReader();
+  var reader = new turfJsts.GeoJSONReader();
   var geom = reader.read(projected);
-  var distance = radiansToLength(lengthToRadians(radius, units), "meters");
-  var buffered = BufferOp.bufferOp(geom, distance, steps, endCapStyle);
-  var writer = new GeoJSONWriter();
+  var distance = helpers.radiansToLength(helpers.lengthToRadians(radius, units), "meters");
+  var buffered = turfJsts.BufferOp.bufferOp(geom, distance, steps, endCapStyle);
+  var writer = new turfJsts.GeoJSONWriter();
   buffered = writer.write(buffered);
 
   // Detect if empty geometries
@@ -148,7 +148,7 @@ function bufferFeature(geojson, radius, units, steps, endCapStyle) {
     coordinates: unprojectCoords(buffered.coordinates, projection),
   };
 
-  return feature(result, properties);
+  return helpers.feature(result, properties);
 }
 
 /**
@@ -201,9 +201,10 @@ function unprojectCoords(coords, proj) {
  * @returns {GeoProjection} D3 Geo Azimuthal Equidistant Projection
  */
 function defineProjection(geojson) {
-  var coords = center(geojson).geometry.coordinates;
+  var coords = center__default['default'](geojson).geometry.coordinates;
   var rotation = [-coords[0], -coords[1]];
-  return geoAzimuthalEquidistant().rotate(rotation).scale(earthRadius);
+  return d3Geo.geoAzimuthalEquidistant().rotate(rotation).scale(helpers.earthRadius);
 }
 
-export default buffer;
+module.exports = buffer;
+module.exports.default = buffer;
