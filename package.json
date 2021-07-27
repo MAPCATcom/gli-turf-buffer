@@ -55,11 +55,14 @@
   "devDependencies": {
     "@turf/truncate": "^6.3.0",
     "benchmark": "*",
+    "documentation": "^13.2.5",
+    "fs-extra": "^10.0.0",
     "load-json-file": "*",
     "npm-run-all": "*",
     "rollup": "*",
     "tape": "*",
-    "write-json-file": "*"
+    "write-json-file": "*",
+    "yamljs": "^0.3.0"
   },
   "dependencies": {
     "@turf/bbox": "^6.3.0",
