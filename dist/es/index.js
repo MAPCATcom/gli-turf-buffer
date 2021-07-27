@@ -19,6 +19,8 @@ import { featureCollection, earthRadius, radiansToLength, lengthToRadians, featu
  * @param {Object} [options={}] Optional parameters
  * @param {string} [options.units="kilometers"] any of the options supported by turf units
  * @param {string} [options.endCapStyle="round"] can be round, flat or square
+ * @param {string} [options.joinStyle="round"] can be round, mitre or bevel
+ * @param {number} [options.mitreLimit=5.0] limit of mitre join style
  * @param {number} [options.steps=8] number of steps
  * @returns {FeatureCollection|Feature<Polygon|MultiPolygon>|undefined} buffered features
  * @example
@@ -36,6 +38,8 @@ function buffer(geojson, radius, options) {
   var units = options.units || "kilometers";
   var steps = options.steps || 8;
   var endCapStyle = options.endCapStyle || "round";
+  var joinStyle = options.joinStyle || "round";
+  var mitreLimit = options.mitreLimit || 5.0;
 
   // validation
   if (!geojson) throw new Error("geojson is required");
@@ -54,6 +58,20 @@ function buffer(geojson, radius, options) {
     default:
       throw new Error("endCapStyle must be 'flat', 'round' or 'square'");
   }
+  switch (joinStyle) {
+    case "round":
+      joinStyle = 1;
+      break;
+    case "mitre":
+      joinStyle = 2;
+      break;
+    case "bevel":
+      joinStyle = 3;
+      break;
+    default:
+      throw new Error("joinStyle must be 'round', 'mitre' or 'bevel'");
+  }
+  if (typeof mitreLimit !== "number") throw new Error("mitreLimit must be a number");
 
   // Allow negative buffers ("erosion") or zero-sized buffers ("repair geometry")
   if (radius === undefined) throw new Error("radius is required");
@@ -68,7 +86,9 @@ function buffer(geojson, radius, options) {
           radius,
           units,
           steps,
-          endCapStyle
+          endCapStyle,
+          joinStyle,
+          mitreLimit
         );
         if (buffered) results.push(buffered);
       });
@@ -80,7 +100,9 @@ function buffer(geojson, radius, options) {
           radius,
           units,
           steps,
-          endCapStyle
+          endCapStyle,
+          joinStyle,
+          mitreLimit
         );
         if (multiBuffered) {
           featureEach(multiBuffered, function (buffered) {
@@ -90,7 +112,7 @@ function buffer(geojson, radius, options) {
       });
       return featureCollection(results);
   }
-  return bufferFeature(geojson, radius, units, steps, endCapStyle);
+  return bufferFeature(geojson, radius, units, steps, endCapStyle, joinStyle, mitreLimit);
 }
 
 /**
@@ -104,7 +126,7 @@ function buffer(geojson, radius, options) {
  * @param {number} [steps=8] number of steps
  * @returns {Feature<Polygon|MultiPolygon>} buffered feature
  */
-function bufferFeature(geojson, radius, units, steps, endCapStyle) {
+function bufferFeature(geojson, radius, units, steps, endCapStyle, joinStyle, mitreLimit) {
   var properties = geojson.properties || {};
   var geometry = geojson.type === "Feature" ? geojson.geometry : geojson;
 
@@ -112,7 +134,7 @@ function bufferFeature(geojson, radius, units, steps, endCapStyle) {
   if (geometry.type === "GeometryCollection") {
     var results = [];
     geomEach(geojson, function (geometry) {
-      var buffered = bufferFeature(geometry, radius, units, steps, endCapStyle);
+      var buffered = bufferFeature(geometry, radius, units, steps, endCapStyle, joinStyle, mitreLimit);
       if (buffered) results.push(buffered);
     });
     return featureCollection(results);
@@ -129,7 +151,12 @@ function bufferFeature(geojson, radius, units, steps, endCapStyle) {
   var reader = new GeoJSONReader();
   var geom = reader.read(projected);
   var distance = radiansToLength(lengthToRadians(radius, units), "meters");
-  var buffered = BufferOp.bufferOp(geom, distance, steps, endCapStyle);
+  var bufferOp = new BufferOp(geom);
+  bufferOp.setQuadrantSegments(steps);
+  bufferOp.setEndCapStyle(endCapStyle);
+  bufferOp._bufParams.setJoinStyle(joinStyle);
+  bufferOp._bufParams.setMitreLimit(mitreLimit);
+  var buffered = bufferOp.getResultGeometry(distance);
   var writer = new GeoJSONWriter();
   buffered = writer.write(buffered);
 
